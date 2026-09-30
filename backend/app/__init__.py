@@ -1,0 +1,1 @@
+"""Together Events API application."""
