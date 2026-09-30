@@ -33,6 +33,8 @@ dist/
 .vite/
 
 agents.md
+README.md
+/docs/PROJECT_GUIDE.md
 
 .vscode/*
 !.vscode/extensions.json

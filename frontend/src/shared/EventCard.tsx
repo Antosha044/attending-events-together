@@ -1,8 +1,8 @@
 import { ArrowRightOutlined, EnvironmentOutlined, UserOutlined } from '@ant-design/icons'
 import { Link } from 'react-router-dom'
-import type { DemoEvent } from '../types/event'
+import type { EventItem } from '../entities/event/model/types'
 
-export default function EventCard({ event, index }: { event: DemoEvent; index: number }) {
+export default function EventCard({ event, index }: { event: EventItem; index: number }) {
   return (
     <Link to={`/events/${event.id}`} className={`event-card card-delay-${index}`}>
       <div className="event-image-wrap"><img src={event.image} alt="" className="event-image" /><span className="event-category">{event.category}</span><span className="image-arrow"><ArrowRightOutlined /></span></div>
