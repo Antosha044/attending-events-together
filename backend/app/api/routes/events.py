@@ -28,6 +28,26 @@ def list_events(
     return list(db.scalars(query))
 
 
+@router.get("/participating", response_model=list[EventRead])
+def list_participating_events(
+    user_id: int = Query(gt=0),
+    db: Session = Depends(get_db),
+) -> list[Event]:
+    if db.get(User, user_id) is None:
+        raise HTTPException(status_code=404, detail="User was not found")
+
+    query = (
+        select(Event)
+        .join(Participation, Participation.event_id == Event.id)
+        .where(
+            Participation.user_id == user_id,
+            Participation.status == ParticipationStatus.JOINED.value,
+        )
+        .order_by(Event.starts_at, Event.id)
+    )
+    return list(db.scalars(query))
+
+
 @router.post("", response_model=EventRead, status_code=status.HTTP_201_CREATED)
 def create_event(payload: EventCreate, db: Session = Depends(get_db)) -> Event:
     if db.get(User, payload.creator_id) is None:
