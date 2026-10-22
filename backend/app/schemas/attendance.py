@@ -7,6 +7,7 @@ from app.schemas.common import ORMModel
 
 class AttendanceCreate(ORMModel):
     event_id: int = Field(gt=0)
+    user_id: int = Field(gt=0)
     attended: bool
 
 

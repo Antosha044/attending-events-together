@@ -6,13 +6,12 @@ import { apiRequest, clearTokens, getTokens, hasSession, storeTokens } from '../
 type ApiUser = { id: number; display_name: string; email: string; city: string }
 type ApiEvent = { id: number; title: string; category: string; city: string; venue: string; address: string | null; description: string | null; starts_at: string; capacity: number; price: string; image: string; host_name: string; creator_id: number; going: number }
 type ApiParticipation = { id: number; event_id: number; user_id: number; status: 'joined' | 'cancelled' }
-type ApiAttendance = { id: number; event_id: number; attended: boolean }
 type ApiMessage = { id: number; author_id: number; body: string; sent_at: string }
 type TokenPair = { access_token: string; refresh_token: string; user: ApiUser }
-type Participant = { id: number; display_name: string; status: string }
+type Participant = { id: number; display_name: string; status: string; attended: boolean | null }
 
 type AppData = {
-  events: EventItem[]; joinedEventIds: string[]; profile: UserProfile; messages: Record<string, EventMessage[]>; attendance: Record<string, boolean>
+  events: EventItem[]; joinedEventIds: string[]; profile: UserProfile; messages: Record<string, EventMessage[]>
   authenticated: boolean; loading: boolean; dataError: string | null
 }
 type AppDataContextValue = AppData & {
@@ -27,12 +26,12 @@ type AppDataContextValue = AppData & {
   loadMessages: (eventId: string) => Promise<void>
   loadParticipants: (eventId: string) => Promise<Participant[]>
   sendMessage: (eventId: string, text: string) => Promise<void>
-  setAttendance: (eventId: string, attended: boolean) => Promise<void>
+  setParticipantAttendance: (eventId: string, userId: number, attended: boolean) => Promise<void>
   reloadEvents: () => Promise<void>
 }
 
 const guest: UserProfile = { name: 'Гость', email: '', city: 'Москва' }
-const initial: AppData = { events: [], joinedEventIds: [], profile: guest, messages: {}, attendance: {}, authenticated: false, loading: true, dataError: null }
+const initial: AppData = { events: [], joinedEventIds: [], profile: guest, messages: {}, authenticated: false, loading: true, dataError: null }
 const AppDataContext = createContext<AppDataContextValue | null>(null)
 
 function mapUser(user: ApiUser): UserProfile { return { id: user.id, name: user.display_name, email: user.email, city: user.city } }
@@ -49,7 +48,6 @@ function asMessage(item: ApiMessage, name: string): EventMessage { return { id: 
 export function AppDataProvider({ children }: PropsWithChildren) {
   const [data, setData] = useState(initial)
   const [participations, setParticipations] = useState<ApiParticipation[]>([])
-  const [attendanceIds, setAttendanceIds] = useState<Record<string, number>>({})
   const report = (error: unknown): never => {
     const text = error instanceof Error ? error.message : 'Не удалось выполнить запрос.'
     setData((current) => ({ ...current, dataError: text }))
@@ -60,12 +58,10 @@ export function AppDataProvider({ children }: PropsWithChildren) {
     catch (error) { report(error) }
   }, [])
   const loadPrivateData = useCallback(async (user: ApiUser) => {
-    const [items, records, attendance] = await Promise.all([apiRequest<ApiEvent[]>('/events'), apiRequest<ApiParticipation[]>('/participations'), apiRequest<ApiAttendance[]>('/attendances')])
+    const [items, records] = await Promise.all([apiRequest<ApiEvent[]>('/events'), apiRequest<ApiParticipation[]>('/participations')])
     const joined = records.filter((item) => item.status === 'joined')
-    const attendanceMap: Record<string, boolean> = {}; const ids: Record<string, number> = {}
-    for (const item of attendance) { attendanceMap[String(item.event_id)] = item.attended; ids[String(item.event_id)] = item.id }
-    setParticipations(records); setAttendanceIds(ids)
-    setData((current) => ({ ...current, events: items.map(mapEvent), joinedEventIds: joined.map((item) => String(item.event_id)), attendance: attendanceMap, profile: mapUser(user), authenticated: true, loading: false, dataError: null }))
+    setParticipations(records)
+    setData((current) => ({ ...current, events: items.map(mapEvent), joinedEventIds: joined.map((item) => String(item.event_id)), profile: mapUser(user), authenticated: true, loading: false, dataError: null }))
   }, [])
   useEffect(() => {
     let active = true
@@ -76,13 +72,13 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       } catch {
         if (active) {
           clearTokens()
-          try { const events = await apiRequest<ApiEvent[]>('/events'); setData((current) => ({ ...current, events: events.map(mapEvent), loading: false, authenticated: false, profile: guest, joinedEventIds: [], attendance: {}, dataError: 'Не удалось восстановить сессию. Войдите снова.' })) }
+          try { const events = await apiRequest<ApiEvent[]>('/events'); setData((current) => ({ ...current, events: events.map(mapEvent), loading: false, authenticated: false, profile: guest, joinedEventIds: [], dataError: 'Не удалось восстановить сессию. Войдите снова.' })) }
           catch { setData((current) => ({ ...current, loading: false, dataError: 'Не удалось загрузить события. Проверьте, запущен ли сервер.' })) }
         }
       }
     }
     void start()
-    const expired = () => { setParticipations([]); setAttendanceIds({}); setData((current) => ({ ...current, authenticated: false, profile: guest, joinedEventIds: [], attendance: {}, messages: {}, dataError: 'Сессия завершена. Войдите снова.' })) }
+    const expired = () => { setParticipations([]); setData((current) => ({ ...current, authenticated: false, profile: guest, joinedEventIds: [], messages: {}, dataError: 'Сессия завершена. Войдите снова.' })) }
     window.addEventListener('auth-expired', expired)
     return () => { active = false; window.removeEventListener('auth-expired', expired) }
   }, [loadPrivateData])
@@ -95,8 +91,8 @@ export function AppDataProvider({ children }: PropsWithChildren) {
     signOut: async () => {
       const refreshToken = getTokens().refresh
       try { if (refreshToken) await apiRequest<void>('/auth/logout', { method: 'POST', body: JSON.stringify({ refresh_token: refreshToken }), skipRefresh: true }) } catch { /* Remove local credentials even if the server is unavailable. */ }
-      clearTokens(); setParticipations([]); setAttendanceIds({})
-      setData((current) => ({ ...current, profile: guest, authenticated: false, joinedEventIds: [], attendance: {}, messages: {}, dataError: null }))
+      clearTokens(); setParticipations([])
+      setData((current) => ({ ...current, profile: guest, authenticated: false, joinedEventIds: [], messages: {}, dataError: null }))
     },
     saveProfile: async (profile) => {
       try { const user = await apiRequest<ApiUser>('/auth/me', { method: 'PATCH', body: JSON.stringify({ display_name: profile.name, email: profile.email, city: profile.city }) }); setData((current) => ({ ...current, profile: mapUser(user), dataError: null })) }
@@ -135,15 +131,12 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       try { const item = await apiRequest<ApiMessage>('/messages', { method: 'POST', body: JSON.stringify({ event_id: Number(eventId), body: text }) }); setData((current) => ({ ...current, messages: { ...current.messages, [eventId]: [...(current.messages[eventId] ?? []), asMessage(item, current.profile.name)] }, dataError: null })) }
       catch (error) { report(error) }
     },
-    setAttendance: async (eventId, attended) => {
-      try {
-        const existingId = attendanceIds[eventId]
-        const result = await apiRequest<ApiAttendance>(existingId ? `/attendances/${existingId}` : '/attendances', { method: existingId ? 'PATCH' : 'POST', body: JSON.stringify(existingId ? { attended } : { event_id: Number(eventId), attended }) })
-        setAttendanceIds((current) => ({ ...current, [eventId]: result.id })); setData((current) => ({ ...current, attendance: { ...current.attendance, [eventId]: attended }, dataError: null }))
-      } catch (error) { report(error) }
+    setParticipantAttendance: async (eventId, userId, attended) => {
+      try { await apiRequest('/attendances', { method: 'PUT', body: JSON.stringify({ event_id: Number(eventId), user_id: userId, attended }) }); setData((current) => ({ ...current, dataError: null })) }
+      catch (error) { report(error) }
     },
     reloadEvents,
-  }), [data, participations, attendanceIds, reloadEvents, loadPrivateData])
+  }), [data, participations, reloadEvents, loadPrivateData])
   return <AppDataContext.Provider value={value}>{children}</AppDataContext.Provider>
 }
 

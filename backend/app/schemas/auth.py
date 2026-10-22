@@ -30,3 +30,4 @@ class ParticipantRead(ORMModel):
     id: int
     display_name: str
     status: str
+    attended: bool | None = None

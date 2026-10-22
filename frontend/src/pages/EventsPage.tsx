@@ -14,11 +14,17 @@ export default function EventsPage() {
   useEffect(() => setSelectedCity(profile.city || 'Москва'), [profile.city])
   const [category, setCategory] = useState('Все события')
   const [query, setQuery] = useState('')
+  const [now, setNow] = useState(Date.now())
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 30_000)
+    return () => window.clearInterval(timer)
+  }, [])
   const filtered = useMemo(() => events.filter((event) =>
+    new Date(event.dateTime).getTime() > now &&
     event.city === city &&
     (category === 'Все события' || event.category === category) &&
     `${event.title} ${event.venue} ${event.description}`.toLocaleLowerCase('ru').includes(query.toLocaleLowerCase('ru')),
-  ), [events, city, category, query])
+  ), [events, city, category, query, now])
 
   return (
     <section className="events-section events-page">
@@ -46,7 +52,7 @@ export default function EventsPage() {
       {filtered.length > 0 ? (
         <div className="events-grid">{filtered.map((event, index) => <EventCard key={event.id} event={event} index={index} />)}</div>
       ) : (
-        <div className="events-empty"><Empty description={events.length === 0 ? 'Событий пока нет' : `В городе «${city}» событий по этому запросу нет`} /></div>
+        <div className="events-empty"><Empty description={events.length === 0 ? 'Событий пока нет' : `В городе «${city}» нет предстоящих событий по этому запросу`} /></div>
       )}
     </section>
   )

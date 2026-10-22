@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
 
@@ -8,6 +9,7 @@ from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.core.security import get_current_user
 from app.models.event import Event, EventStatus
+from app.models.attendance import Attendance
 from app.models.participation import Participation, ParticipationStatus
 from app.models.user import User
 from app.schemas.event import EventCreate, EventRead, EventUpdate
@@ -66,11 +68,14 @@ def list_event_participants(event_id: int, user: User = Depends(get_current_user
         Participation.status == ParticipationStatus.JOINED.value,
     )) is None:
         raise HTTPException(status_code=403, detail="Join this event to view its group")
-    rows = db.execute(select(User, Participation.status).join(Participation, Participation.user_id == User.id).where(
+    ended = event.starts_at <= datetime.now(timezone.utc)
+    rows = db.execute(select(User, Participation.status, Attendance.attended).join(Participation, Participation.user_id == User.id).outerjoin(
+        Attendance, (Attendance.event_id == Participation.event_id) & (Attendance.user_id == Participation.user_id),
+    ).where(
         Participation.event_id == event_id,
         Participation.status == ParticipationStatus.JOINED.value,
     ).order_by(Participation.joined_at)).all()
-    return [ParticipantRead(id=member.id, display_name=member.display_name, status=participation_status) for member, participation_status in rows]
+    return [ParticipantRead(id=member.id, display_name=member.display_name, status=participation_status, attended=attended if ended else None) for member, participation_status, attended in rows]
 
 
 @router.get("", response_model=list[EventRead])
