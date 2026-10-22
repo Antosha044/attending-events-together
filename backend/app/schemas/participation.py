@@ -8,7 +8,6 @@ from app.schemas.common import ORMModel
 
 class ParticipationCreate(ORMModel):
     event_id: int = Field(gt=0)
-    user_id: int = Field(gt=0)
 
 
 class ParticipationUpdate(ORMModel):

@@ -19,9 +19,13 @@ class Event(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     title: Mapped[str] = mapped_column(String(160), nullable=False)
+    category: Mapped[str] = mapped_column(String(80), default="Другое", server_default="Другое", nullable=False)
+    city: Mapped[str] = mapped_column(String(100), default="Москва", server_default="Москва", nullable=False)
     description: Mapped[str | None] = mapped_column(Text)
     venue: Mapped[str] = mapped_column(String(200), nullable=False)
     address: Mapped[str | None] = mapped_column(String(300))
+    price: Mapped[str] = mapped_column(String(40), default="Бесплатно", server_default="Бесплатно", nullable=False)
+    image: Mapped[str] = mapped_column(Text, default="", server_default="", nullable=False)
     starts_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
     capacity: Mapped[int] = mapped_column(Integer, nullable=False)
     status: Mapped[str] = mapped_column(String(20), default=EventStatus.PUBLISHED.value, server_default="published", nullable=False)
@@ -33,3 +37,11 @@ class Event(Base):
     participations: Mapped[list["Participation"]] = relationship(back_populates="event", cascade="all, delete-orphan")
     messages: Mapped[list["Message"]] = relationship(back_populates="event", cascade="all, delete-orphan")
     attendances: Mapped[list["Attendance"]] = relationship(back_populates="event", cascade="all, delete-orphan")
+
+    @property
+    def going(self) -> int:
+        return sum(participation.status == "joined" for participation in self.participations)
+
+    @property
+    def host_name(self) -> str:
+        return self.creator.display_name
