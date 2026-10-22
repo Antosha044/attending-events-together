@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Empty, Input, Select } from 'antd'
 import { SearchOutlined } from '@ant-design/icons'
 import { useAppData } from '../app/providers/AppDataProvider'
@@ -8,8 +8,10 @@ const categories = ['Все события', 'Музыка', 'Искусство
 const cities = ['Москва', 'Санкт-Петербург', 'Казань', 'Екатеринбург']
 
 export default function EventsPage() {
-  const { events, profile, saveProfile } = useAppData()
-  const city = profile.city || 'Москва'
+  const { events, profile, saveProfile, authenticated } = useAppData()
+  const [selectedCity, setSelectedCity] = useState(profile.city || 'Москва')
+  const city = selectedCity
+  useEffect(() => setSelectedCity(profile.city || 'Москва'), [profile.city])
   const [category, setCategory] = useState('Все события')
   const [query, setQuery] = useState('')
   const filtered = useMemo(() => events.filter((event) =>
@@ -28,7 +30,8 @@ export default function EventsPage() {
         <label className="city-picker">
           <span>Город</span>
           <Select aria-label="Выбрать город" value={city} onChange={(value) => {
-            try { saveProfile({ ...profile, city: value }) } catch { /* The global storage alert explains persistence errors. */ }
+            setSelectedCity(value)
+            if (authenticated) void saveProfile({ ...profile, city: value }).catch(() => undefined)
           }} options={cities.map((value) => ({ value, label: value }))} />
         </label>
       </div>

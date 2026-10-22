@@ -1,5 +1,6 @@
 export type EventItem = {
   id: string
+  creatorId?: number
   title: string
   category: string
   dateLabel: string

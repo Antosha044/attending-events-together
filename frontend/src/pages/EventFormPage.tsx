@@ -1,4 +1,5 @@
-import { Button, Form, Input, InputNumber, Select, message } from 'antd'
+import { Alert, Button, Form, Input, InputNumber, Select, message } from 'antd'
+import { useState } from 'react'
 import { ArrowLeftOutlined } from '@ant-design/icons'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useAppData } from '../app/providers/AppDataProvider'
@@ -18,18 +19,22 @@ function formatDate(dateTime: string) {
 export default function EventFormPage() {
   const { eventId } = useParams()
   const navigate = useNavigate()
-  const { events, profile, saveEvent } = useAppData()
+  const { events, profile, saveEvent, authenticated } = useAppData()
   const event = events.find((item) => item.id === eventId)
   const editing = Boolean(eventId)
   const [messageApi, messageContext] = message.useMessage()
+  const [saving, setSaving] = useState(false)
   if (editing && !event) return <NotFoundPage />
+  if (!authenticated) return <div className="form-page"><Alert type="info" showIcon message="Войдите, чтобы создавать и изменять события" action={<Button onClick={() => window.dispatchEvent(new Event('auth-open'))}>Войти или зарегистрироваться</Button>} /></div>
+  if (editing && event?.creatorId !== profile.id) return <div className="form-page"><Alert type="error" showIcon message="Изменять событие может только его организатор" /></div>
 
   const initialValues: EventFormValues = event ? {
     title: event.title, category: event.category, city: event.city, dateTime: event.dateTime,
     venue: event.venue, address: event.address, description: event.description, capacity: event.capacity, price: event.price,
   } : { title: '', category: '', city: profile.city || 'Москва', dateTime: '', venue: '', address: '', description: '', capacity: 6, price: 'Бесплатно' }
 
-  const submit = (values: EventFormValues) => {
+  const submit = async (values: EventFormValues) => {
+    setSaving(true)
     const input: EventInput = {
       ...values,
       dateLabel: formatDate(values.dateTime),
@@ -37,12 +42,12 @@ export default function EventFormPage() {
       image: event?.image ?? 'https://images.unsplash.com/photo-1519608487953-e999c86e7455?auto=format&fit=crop&w=1000&q=85',
     }
     try {
-      const id = saveEvent(input, event?.id)
+      const id = await saveEvent(input, event?.id)
       messageApi.success(editing ? 'Изменения сохранены' : 'Событие добавлено')
       navigate(`/events/${id}`)
-    } catch {
-      messageApi.error('Не удалось сохранить событие')
-    }
+    } catch (error) {
+      messageApi.error(error instanceof Error ? error.message : 'Не удалось сохранить событие')
+    } finally { setSaving(false) }
   }
 
   return (
@@ -67,7 +72,7 @@ export default function EventFormPage() {
             <Form.Item label="Стоимость" name="price" rules={[{ required: true, whitespace: true, message: 'Укажите стоимость' }, { max: 40, message: 'Максимум 40 символов' }]}><Input size="large" /></Form.Item>
           </div>
           <Form.Item label="Количество мест" name="capacity" rules={[{ required: true, message: 'Укажите количество мест' }, { type: 'number', min: 1, max: 100, message: 'Допустимо от 1 до 100 мест' }, ...(event ? [{ validator: (_: unknown, value: number) => value >= event.going ? Promise.resolve() : Promise.reject(new Error(`Уже записано участников: ${event.going}`)) }] : [])]}><InputNumber size="large" min={1} max={100} /></Form.Item>
-          <Button type="primary" size="large" htmlType="submit">{editing ? 'Сохранить' : 'Создать событие'}</Button>
+          <Button type="primary" size="large" htmlType="submit" loading={saving}>{editing ? 'Сохранить' : 'Создать событие'}</Button>
         </Form>
       </div>
     </div>
