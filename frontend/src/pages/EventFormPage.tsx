@@ -43,13 +43,17 @@ export default function EventFormPage() {
 
   const submit = async (values: EventFormValues) => {
     setSaving(true)
-    const input: EventInput = {
-      ...values,
-      dateLabel: formatDate(values.dateTime),
-      time: values.dateTime.slice(11, 16),
-      image: event?.image ?? '',
-    }
     try {
+      const eventDate = new Date(values.dateTime)
+      if (!values.dateTime || Number.isNaN(eventDate.getTime())) {
+        throw new Error('Укажите корректные дату и время события')
+      }
+      const input: EventInput = {
+        ...values,
+        dateLabel: formatDate(values.dateTime),
+        time: values.dateTime.slice(11, 16),
+        image: event?.image ?? '',
+      }
       const id = await saveEvent(input, event?.id)
       if (selectedImage) {
         try { await uploadEventImage(id, selectedImage) }
