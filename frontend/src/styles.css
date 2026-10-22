@@ -39,6 +39,8 @@
 .chat-composer small{display:block;text-align:right;margin-top:5px}
 .attendance-result{margin:14px 0 0;color:#52745e;font-size:12px}
 .form-card .ant-form-item-explain-error{font-size:11px}
+.event-image-editor{display:flex;align-items:flex-start;gap:16px}.event-image-editor img{width:min(320px,45%);height:180px;object-fit:cover;border-radius:12px;border:1px solid #e9ece7}.event-image-editor>div{display:flex;flex-direction:column;gap:8px}.event-image-editor input{max-width:100%;font:inherit;font-size:12px}.event-image-editor small{max-width:360px;color:#89928b;font-size:11px;line-height:1.5}
+@media(max-width:680px){.event-image-editor{flex-direction:column}.event-image-editor img{width:100%;height:190px}}
 .mobile-nav{display:none}
 .request-error{max-width:1200px;width:calc(100% - 48px);margin:16px auto 0}.link-button{border:0;background:none;color:#356b55;text-decoration:underline;cursor:pointer;font:inherit}
 

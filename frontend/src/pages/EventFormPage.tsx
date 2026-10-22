@@ -1,5 +1,5 @@
 import { Alert, Button, Form, Input, InputNumber, Select, message } from 'antd'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { ArrowLeftOutlined } from '@ant-design/icons'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useAppData } from '../app/providers/AppDataProvider'
@@ -19,11 +19,19 @@ function formatDate(dateTime: string) {
 export default function EventFormPage() {
   const { eventId } = useParams()
   const navigate = useNavigate()
-  const { events, profile, saveEvent, authenticated } = useAppData()
+  const { events, profile, saveEvent, uploadEventImage, authenticated } = useAppData()
   const event = events.find((item) => item.id === eventId)
   const editing = Boolean(eventId)
   const [messageApi, messageContext] = message.useMessage()
   const [saving, setSaving] = useState(false)
+  const [selectedImage, setSelectedImage] = useState<File | null>(null)
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  useEffect(() => {
+    if (!selectedImage) { setPreviewUrl(null); return }
+    const url = URL.createObjectURL(selectedImage)
+    setPreviewUrl(url)
+    return () => URL.revokeObjectURL(url)
+  }, [selectedImage])
   if (editing && !event) return <NotFoundPage />
   if (!authenticated) return <div className="form-page"><Alert type="info" showIcon message="Войдите, чтобы создавать и изменять события" action={<Button onClick={() => window.dispatchEvent(new Event('auth-open'))}>Войти или зарегистрироваться</Button>} /></div>
   if (editing && event?.creatorId !== profile.id) return <div className="form-page"><Alert type="error" showIcon message="Изменять событие может только его организатор" /></div>
@@ -39,10 +47,18 @@ export default function EventFormPage() {
       ...values,
       dateLabel: formatDate(values.dateTime),
       time: values.dateTime.slice(11, 16),
-      image: event?.image ?? 'https://images.unsplash.com/photo-1519608487953-e999c86e7455?auto=format&fit=crop&w=1000&q=85',
+      image: event?.image ?? '',
     }
     try {
       const id = await saveEvent(input, event?.id)
+      if (selectedImage) {
+        try { await uploadEventImage(id, selectedImage) }
+        catch (error) {
+          messageApi.error(`Событие сохранено, но изображение не загрузилось: ${error instanceof Error ? error.message : 'ошибка загрузки'}`)
+          navigate(`/events/${id}/edit`)
+          return
+        }
+      }
       messageApi.success(editing ? 'Изменения сохранены' : 'Событие добавлено')
       navigate(`/events/${id}`)
     } catch (error) {
@@ -57,6 +73,28 @@ export default function EventFormPage() {
       <div className="page-intro"><div><div className="eyebrow">СОБЫТИЕ</div><h1>{editing ? 'Редактирование события' : 'Новое событие'}</h1></div></div>
       <div className="form-card">
         <Form layout="vertical" initialValues={initialValues} onFinish={submit}>
+          <Form.Item label="Изображение события">
+            <div className="event-image-editor">
+              {(previewUrl || event?.image) && <img src={previewUrl || event?.image} alt="Предпросмотр изображения события" />}
+              <div>
+                <input
+                  aria-label="Выберите изображение события"
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  disabled={saving}
+                  onChange={(change) => {
+                    const file = change.target.files?.[0]
+                    change.target.value = ''
+                    if (!file) return
+                    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) { messageApi.error('Поддерживаются JPEG, PNG и WebP'); return }
+                    if (file.size > 5 * 1024 * 1024) { messageApi.error('Размер изображения не должен превышать 5 МБ'); return }
+                    setSelectedImage(file)
+                  }}
+                />
+                <small>JPEG, PNG или WebP, до 5 МБ. {event ? 'Новое изображение заменит текущее после сохранения.' : 'Можно добавить при создании или позже.'}</small>
+              </div>
+            </div>
+          </Form.Item>
           <Form.Item label="Название" name="title" rules={[{ required: true, whitespace: true, message: 'Введите название события' }, { max: 160, message: 'Максимум 160 символов' }]}><Input size="large" maxLength={160} /></Form.Item>
           <div className="form-split">
             <Form.Item label="Категория" name="category" rules={[{ required: true, message: 'Выберите категорию' }]}><Select size="large" options={categories.map((value) => ({ value, label: value }))} /></Form.Item>

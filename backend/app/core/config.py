@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     jwt_secret: str = Field(default="replace-this-development-secret-before-deploying", min_length=32)
     access_token_minutes: int = Field(default=15, gt=0)
     refresh_token_days: int = Field(default=7, gt=0)
+    upload_dir: str = "uploads"
 
 
 @lru_cache

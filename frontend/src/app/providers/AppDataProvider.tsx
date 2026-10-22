@@ -21,6 +21,7 @@ type AppDataContextValue = AppData & {
   signOut: () => Promise<void>
   saveProfile: (profile: UserProfile) => Promise<void>
   saveEvent: (input: EventInput, id?: string) => Promise<string>
+  uploadEventImage: (id: string, image: Blob) => Promise<void>
   deleteEvent: (id: string) => Promise<void>
   toggleParticipation: (eventId: string) => Promise<void>
   loadMessages: (eventId: string) => Promise<void>
@@ -107,6 +108,10 @@ export function AppDataProvider({ children }: PropsWithChildren) {
         if (!id) { const records = await apiRequest<ApiParticipation[]>('/participations'); setParticipations(records); setData((current) => ({ ...current, joinedEventIds: records.filter((item) => item.status === 'joined').map((item) => String(item.event_id)) })) }
         await reloadEvents(); return String(result.id)
       }
+      catch (error) { report(error); throw error }
+    },
+    uploadEventImage: async (id, image) => {
+      try { await apiRequest<ApiEvent>(`/events/${id}/image`, { method: 'PUT', body: image, headers: { 'Content-Type': image.type } }); await reloadEvents() }
       catch (error) { report(error); throw error }
     },
     deleteEvent: async (id) => { try { await apiRequest<void>(`/events/${id}`, { method: 'DELETE' }); await reloadEvents() } catch (error) { report(error) } },

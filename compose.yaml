@@ -28,8 +28,11 @@ services:
       JWT_SECRET: ${JWT_SECRET:-replace-this-development-secret-before-use}
       ACCESS_TOKEN_MINUTES: ${ACCESS_TOKEN_MINUTES:-15}
       REFRESH_TOKEN_DAYS: ${REFRESH_TOKEN_DAYS:-7}
+      UPLOAD_DIR: /app/uploads
     ports:
       - "8000:8000"
+    volumes:
+      - event_uploads:/app/uploads
     depends_on:
       db:
         condition: service_healthy
@@ -48,3 +51,4 @@ services:
 
 volumes:
   postgres_data:
+  event_uploads:

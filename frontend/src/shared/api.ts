@@ -42,7 +42,7 @@ export async function apiRequest<T>(path: string, options: ApiOptions = {}): Pro
   const { skipRefresh = false, ...requestOptions } = options
   const perform = () => {
     const headers = new Headers(requestOptions.headers)
-    if (requestOptions.body && !(requestOptions.body instanceof FormData)) headers.set('Content-Type', 'application/json')
+    if (requestOptions.body && typeof requestOptions.body === 'string') headers.set('Content-Type', 'application/json')
     const access = getTokens().access
     if (access) headers.set('Authorization', `Bearer ${access}`)
     return fetch(`${API_BASE}${path}`, { ...requestOptions, headers })
