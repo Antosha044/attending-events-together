@@ -2,9 +2,9 @@ services:
   db:
     image: postgres:17-alpine
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-events}
-      POSTGRES_USER: ${POSTGRES_USER:-events}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
     volumes:
@@ -21,14 +21,14 @@ services:
     build:
       context: ./backend
     environment:
-      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-events}:${POSTGRES_PASSWORD:-change-me}@db:5432/${POSTGRES_DB:-events}
-      APP_NAME: "Together Events API"
-      API_V1_PREFIX: /api/v1
-      CORS_ORIGINS: '["http://localhost:5173"]'
-      JWT_SECRET: ${JWT_SECRET:-replace-this-development-secret-before-use}
-      ACCESS_TOKEN_MINUTES: ${ACCESS_TOKEN_MINUTES:-15}
-      REFRESH_TOKEN_DAYS: ${REFRESH_TOKEN_DAYS:-7}
-      UPLOAD_DIR: /app/uploads
+      DATABASE_URL: ${DATABASE_URL}
+      APP_NAME: ${APP_NAME}
+      API_V1_PREFIX: ${API_V1_PREFIX}
+      CORS_ORIGINS: ${CORS_ORIGINS}
+      JWT_SECRET: ${JWT_SECRET}
+      ACCESS_TOKEN_MINUTES: ${ACCESS_TOKEN_MINUTES}
+      REFRESH_TOKEN_DAYS: ${REFRESH_TOKEN_DAYS}
+      UPLOAD_DIR: ${UPLOAD_DIR}
     ports:
       - "8000:8000"
     volumes:
@@ -44,7 +44,7 @@ services:
     ports:
       - "5173:5173"
     environment:
-      API_PROXY_TARGET: http://backend:8000
+      API_PROXY_TARGET: ${API_PROXY_TARGET}
     depends_on:
       - backend
     restart: unless-stopped
