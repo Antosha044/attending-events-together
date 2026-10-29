@@ -1,1 +1,1 @@
-"""Domain operations and shared CRUD helpers."""
+"""Application use cases."""

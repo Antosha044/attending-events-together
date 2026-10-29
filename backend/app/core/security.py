@@ -27,7 +27,9 @@ def verify_password(password: str, stored: str) -> bool:
         algorithm, salt_hex, digest_hex = stored.split("$", 2)
         if algorithm != "scrypt":
             return False
-        digest = hashlib.scrypt(password.encode(), salt=bytes.fromhex(salt_hex), n=2**14, r=8, p=1)
+        digest = hashlib.scrypt(
+            password.encode(), salt=bytes.fromhex(salt_hex), n=2**14, r=8, p=1
+        )
         return hmac.compare_digest(digest.hex(), digest_hex)
     except (ValueError, TypeError):
         return False
@@ -37,9 +39,16 @@ def create_access_token(user_id: int) -> tuple[str, datetime]:
     expires = datetime.now(UTC) + timedelta(minutes=get_settings().access_token_minutes)
     encode = lambda value: base64.urlsafe_b64encode(value).rstrip(b"=").decode()
     header = encode(b'{"alg":"HS256","typ":"JWT"}')
-    payload = encode(json.dumps({"sub": str(user_id), "exp": int(expires.timestamp())}, separators=(",", ":")).encode())
+    payload = encode(
+        json.dumps(
+            {"sub": str(user_id), "exp": int(expires.timestamp())},
+            separators=(",", ":"),
+        ).encode()
+    )
     signing_input = f"{header}.{payload}".encode()
-    signature = hmac.new(get_settings().jwt_secret.encode(), signing_input, hashlib.sha256).digest()
+    signature = hmac.new(
+        get_settings().jwt_secret.encode(), signing_input, hashlib.sha256
+    ).digest()
     return f"{header}.{payload}.{encode(signature)}", expires
 
 
@@ -47,7 +56,9 @@ def decode_access_token(token: str) -> int:
     try:
         header, payload, signature = token.split(".")
         signing_input = f"{header}.{payload}".encode()
-        expected = hmac.new(get_settings().jwt_secret.encode(), signing_input, hashlib.sha256).digest()
+        expected = hmac.new(
+            get_settings().jwt_secret.encode(), signing_input, hashlib.sha256
+        ).digest()
         decode = lambda value: base64.urlsafe_b64decode(value + "=" * (-len(value) % 4))
         if not hmac.compare_digest(decode(signature), expected):
             raise ValueError
@@ -56,7 +67,11 @@ def decode_access_token(token: str) -> int:
             raise ValueError
         return int(claims["sub"])
     except (ValueError, KeyError, TypeError, UnicodeDecodeError, json.JSONDecodeError):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired access token", headers={"WWW-Authenticate": "Bearer"}) from None
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired access token",
+            headers={"WWW-Authenticate": "Bearer"},
+        ) from None
 
 
 def get_current_user(
@@ -64,10 +79,18 @@ def get_current_user(
     db: Session = Depends(get_db),
 ) -> User:
     if credentials is None:
-        raise HTTPException(status_code=401, detail="Authentication required", headers={"WWW-Authenticate": "Bearer"})
+        raise HTTPException(
+            status_code=401,
+            detail="Authentication required",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
     user = db.get(User, decode_access_token(credentials.credentials))
     if user is None:
-        raise HTTPException(status_code=401, detail="User no longer exists", headers={"WWW-Authenticate": "Bearer"})
+        raise HTTPException(
+            status_code=401,
+            detail="User no longer exists",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
     return user
 
 
